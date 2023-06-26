@@ -18,6 +18,8 @@
 #include "stdlib.hpp"
 
 #include <pico/bootrom.h>
+// Changed default connection to Switch mode, no longer need to hold X on plugin. 
+// Hold X on plugin for connecting to PC
 
 CommunicationBackend **backends = nullptr;
 size_t backend_count;
@@ -28,6 +30,7 @@ GpioButtonMapping button_mappings[] = {
     { &InputState::left,        4 },
     { &InputState::down,        3 },
     { &InputState::right,       2 },
+    { &InputState::up,          1 },
 
     { &InputState::mod_x,       6 },
     { &InputState::mod_y,       7 },
@@ -45,9 +48,10 @@ GpioButtonMapping button_mappings[] = {
     { &InputState::b,           26},
     { &InputState::x,           21},
     { &InputState::z,           19},
-    { &InputState::up,          17},
+    { &InputState::lbumper,     27}, //changed from 17
+    //{ &InputState::up,          17},
 
-    { &InputState::r,           27},
+    { &InputState::r,           17}, //changed from 27
     { &InputState::y,           22},
     { &InputState::lightshield, 20},
     { &InputState::midshield,   18},
@@ -89,15 +93,12 @@ void setup() {
     CommunicationBackend *primary_backend;
     if (console == ConnectedConsole::NONE) {
         if (button_holds.x) {
-            // If no console detected and X is held on plugin then use Switch USB backend.
-            NintendoSwitchBackend::RegisterDescriptor();
-            backend_count = 1;
-            primary_backend = new NintendoSwitchBackend(input_sources, input_source_count);
-            backends = new CommunicationBackend *[backend_count] { primary_backend };
-
-            // Default to Ultimate mode on Switch.
-            primary_backend->SetGameMode(new Ultimate(socd::SOCD_2IP));
-            return;
+            // If no console detected and X is held on plugin then use Xinput mode
+            backend_count = 2;
+            primary_backend = new XInputBackend(input_sources, input_source_count);
+            backends = new CommunicationBackend *[backend_count] {
+                primary_backend, new B0XXInputViewer(input_sources, input_source_count)
+            };
         } else if (button_holds.z) {
             // If no console detected and Z is held on plugin then use DInput backend.
             TUGamepad::registerDescriptor();
@@ -108,12 +109,15 @@ void setup() {
                 primary_backend, new B0XXInputViewer(input_sources, input_source_count)
             };
         } else {
-            // Default to XInput mode if no console detected and no other mode forced.
-            backend_count = 2;
-            primary_backend = new XInputBackend(input_sources, input_source_count);
-            backends = new CommunicationBackend *[backend_count] {
-                primary_backend, new B0XXInputViewer(input_sources, input_source_count)
-            };
+            // Default to Switch USB backend if no console detected and no other mode forced.
+            NintendoSwitchBackend::RegisterDescriptor();
+            backend_count = 1;
+            primary_backend = new NintendoSwitchBackend(input_sources, input_source_count);
+            backends = new CommunicationBackend *[backend_count] { primary_backend };
+
+            // Default to Ultimate mode on Switch.
+            primary_backend->SetGameMode(new Ultimate(socd::SOCD_2IP));
+            return;
         }
     } else {
         if (console == ConnectedConsole::GAMECUBE) {

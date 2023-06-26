@@ -20,12 +20,16 @@ void Ultimate::UpdateDigitalOutputs(InputState &inputs, OutputState &outputs) {
     outputs.b = inputs.b;
     outputs.x = inputs.x;
     outputs.y = inputs.y;
+    outputs.buttonL = inputs.lbumper;
     outputs.buttonR = inputs.z;
-    outputs.triggerLDigital = inputs.l;
+    //outputs.triggerLDigital = inputs.l;
     outputs.triggerRDigital = inputs.r;
     outputs.start = inputs.start;
     outputs.select = inputs.select;
     outputs.home = inputs.home;
+    outputs.leftStickClick = inputs.lightshield;
+    outputs.rightStickClick = inputs.midshield;
+
 
     // Turn on D-Pad layer by holding Mod X + Mod Y or Nunchuk C button.
     if ((inputs.mod_x && inputs.mod_y) || inputs.nunchuk_c) {
@@ -42,7 +46,7 @@ void Ultimate::UpdateAnalogOutputs(InputState &inputs, OutputState &outputs) {
         inputs.left,
         inputs.right,
         inputs.down,
-        inputs.up,
+        (inputs.l) ? inputs.r : inputs.up, //for faster mashes with 2ip
         inputs.c_left,
         inputs.c_right,
         inputs.c_down,
@@ -53,7 +57,7 @@ void Ultimate::UpdateAnalogOutputs(InputState &inputs, OutputState &outputs) {
         outputs
     );
 
-    bool shield_button_pressed = inputs.l || inputs.r || inputs.lightshield || inputs.midshield;
+    bool shield_button_pressed = inputs.l || inputs.r; //removed ls and ms
 
     if (inputs.mod_x) {
         // MX + Horizontal = 6625 = 53
@@ -87,10 +91,16 @@ void Ultimate::UpdateAnalogOutputs(InputState &inputs, OutputState &outputs) {
             }
         }
 
-        // Angled fsmash/ftilt with C-Stick + MX
+        // Up Angled fsmash/ftilt with C-Stick + MX
         if (directions.cx != 0) {
             outputs.rightStickX = 128 + (directions.cx * 127);
-            outputs.rightStickY = 128 + (directions.y * 59);
+            outputs.rightStickY = 128 + 59;
+        }
+
+        // Left Angled up/down smash/tilt with C-Stick + MX
+        if (directions.cy != 0) {
+            outputs.rightStickX = 128 - 53;
+            outputs.rightStickY = 128 + (directions.cy * 127);
         }
 
         /* Up B angles */
@@ -155,7 +165,7 @@ void Ultimate::UpdateAnalogOutputs(InputState &inputs, OutputState &outputs) {
     }
 
     if (inputs.mod_y) {
-        // MY + Horizontal (even if shield is held) = 41
+        // MY + Horizontal (even if shield is held) = 42
         if (directions.horizontal) {
             outputs.leftStickX = 128 + (directions.x * 41);
             // MY Horizontal Tilts
@@ -185,6 +195,18 @@ void Ultimate::UpdateAnalogOutputs(InputState &inputs, OutputState &outputs) {
                     outputs.leftStickY = 128 + (directions.y * 68);
                 }
             }
+        }
+
+        // Down Angled fsmash/ftilt with C-Stick + MY
+        if (directions.cx != 0) {
+            outputs.rightStickX = 128 + (directions.cx * 127);
+            outputs.rightStickY = 128 - 59;
+        }
+
+        // Right Angled up/down smash/tilt with C-Stick + MY
+        if (directions.cy != 0) {
+            outputs.rightStickX = 128 + 53;
+            outputs.rightStickY = 128 + (directions.cy * 127);
         }
 
         /* Up B angles */
@@ -270,9 +292,9 @@ void Ultimate::UpdateAnalogOutputs(InputState &inputs, OutputState &outputs) {
         outputs.rightStickY = 128;
     }
 
-    // Nunchuk overrides left stick.
-    if (inputs.nunchuk_connected) {
-        outputs.leftStickX = inputs.nunchuk_x;
-        outputs.leftStickY = inputs.nunchuk_y;
+    // Force an up b to come out, allows for pre-setting up b angles
+    if (inputs.midshield) {
+        outputs.leftStickX = 128;
+        outputs.leftStickY = 128 + 50;
     }
 }

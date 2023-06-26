@@ -54,6 +54,8 @@ class NintendoSwitchBackend : public CommunicationBackend {
 
     switch_gamepad_report_t _report;
 
+    static uint8_t ApplyDeadzone(uint8_t value, uint8_t deadzone, bool scale);
+    static uint8_t ApplyRadius(uint8_t value, int radius);
     static switch_gamepad_hat_t GetHatPosition(bool left, bool right, bool down, bool up);
 };
 

@@ -5,6 +5,9 @@
 
 #include <Adafruit_TinyUSB.h>
 #include <TUCompositeHID.hpp>
+#include <math.h>
+
+#define SIGNUM(x) ((x > 0) - (x < 0))
 
 // clang-format off
 
@@ -48,9 +51,13 @@
         HID_REPORT_SIZE    ( 8                                      ) ,\
         HID_REPORT_COUNT   ( 4                                      ) ,\
         HID_INPUT          ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ) ,\
-        /* Some output from the host idk */ \
+        /* Some random vendor input idk */ \
         HID_USAGE_PAGE_N   ( HID_USAGE_PAGE_VENDOR, 2               ) ,\
         HID_USAGE          ( 0x20                                   ) ,\
+        HID_REPORT_COUNT   ( 1                                      ) ,\
+        HID_INPUT          ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ) ,\
+        /* Some output from the host idk */ \
+        0x0A, 0x21, 0x26, \
         HID_REPORT_COUNT   ( 8                                      ) ,\
         HID_OUTPUT         ( HID_DATA | HID_VARIABLE | HID_ABSOLUTE ) ,\
     HID_COLLECTION_END
@@ -127,16 +134,39 @@ void NintendoSwitchBackend::SendReport() {
     _report.home = _outputs.home;
 
     // Analog outputs
-    _report.lx = (_outputs.leftStickX - 128) * 1.25 + 128;
-    _report.ly = 255 - ((_outputs.leftStickY - 128) * 1.25 + 128);
-    _report.rx = (_outputs.rightStickX - 128) * 1.25 + 128;
-    _report.ry = 255 - ((_outputs.rightStickY - 128) * 1.25 + 128);
+    _report.lx = ApplyRadius(ApplyDeadzone(_outputs.leftStickX, 11, true), 256);
+    _report.ly = 255 - ApplyRadius(ApplyDeadzone(_outputs.leftStickY, 11, true), 256);
+    _report.rx = ApplyRadius(ApplyDeadzone(_outputs.rightStickX, 11, true), 256);
+    _report.ry = 255 - ApplyRadius(ApplyDeadzone(_outputs.rightStickY, 11, true), 256);
 
     // D-pad Hat Switch
     _report.hat =
         GetHatPosition(_outputs.dpadLeft, _outputs.dpadRight, _outputs.dpadDown, _outputs.dpadUp);
 
     TUCompositeHID::_usb_hid.sendReport(_report_id, &_report, sizeof(switch_gamepad_report_t));
+}
+
+uint8_t NintendoSwitchBackend::ApplyDeadzone(uint8_t value, uint8_t deadzone, bool scale) {
+    int8_t value_signed = value - 128;
+    if (abs(value_signed) > deadzone) {
+        // If outside deadzone, must subtract deadzone from result so that axis values start from 1
+        // instead of having lower values cut off.
+        int8_t post_deadzone = value_signed - deadzone * SIGNUM(value_signed);
+        // If a radius value is passed in, scale up the values linearly so that the same effective
+        // value is given on the rim.
+        if (scale) {
+            int8_t post_scaling = min(127, post_deadzone * 128.0 / (128 - deadzone));
+            return post_scaling + 128;
+        }
+        return post_deadzone + 128;
+    }
+    return 128;
+}
+
+uint8_t NintendoSwitchBackend::ApplyRadius(uint8_t value, int radius) {
+    int8_t value_signed = value - 128;
+    int8_t sign = SIGNUM(value_signed);
+    return min(127, abs((int)(value_signed * radius / 128.0))) * sign + 128;
 }
 
 switch_gamepad_hat_t NintendoSwitchBackend::GetHatPosition(
